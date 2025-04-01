@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MadPodRacingTurningMechanicsTest", "MadPodRacingTurningMechanicsTest\MadPodRacingTurningMechanicsTest.csproj", "{FBD84420-28A6-412F-B902-F0900113F4F2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MadPodRacingHeuristicBotGold", "MadPodRacingHeuristicBotGold\MadPodRacingHeuristicBotGold.csproj", "{EB8B8411-1C93-48C9-9524-667033F35A32}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MadPodRacingHeuristicBotBronze", "MadPodRacingHeuristicBotBronze\MadPodRacingHeuristicBotBronze.csproj", "{CD4E3D5A-77F5-4EA7-AF6D-D26D2D6AAF28}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FBD84420-28A6-412F-B902-F0900113F4F2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FBD84420-28A6-412F-B902-F0900113F4F2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FBD84420-28A6-412F-B902-F0900113F4F2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FBD84420-28A6-412F-B902-F0900113F4F2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EB8B8411-1C93-48C9-9524-667033F35A32}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EB8B8411-1C93-48C9-9524-667033F35A32}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EB8B8411-1C93-48C9-9524-667033F35A32}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EB8B8411-1C93-48C9-9524-667033F35A32}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CD4E3D5A-77F5-4EA7-AF6D-D26D2D6AAF28}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CD4E3D5A-77F5-4EA7-AF6D-D26D2D6AAF28}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CD4E3D5A-77F5-4EA7-AF6D-D26D2D6AAF28}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CD4E3D5A-77F5-4EA7-AF6D-D26D2D6AAF28}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
