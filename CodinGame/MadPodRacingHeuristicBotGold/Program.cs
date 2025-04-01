@@ -1,5 +1,15 @@
 ﻿#pragma warning disable CA1050
 
+/*
+TODO:
+    - Incorporate shield
+        - Predict if collision is likely
+        - Use shield if current heading is good and collision is likely
+    - Incorporate Knowledge of next checkpoint
+    - Use Boost to try separate my bots to prevent them from interfering with each other.
+*/
+
+
 // ReSharper disable RedundantUsingDirective
 using System;
 using System.Linq;
@@ -37,6 +47,7 @@ public record World(int Laps, int CheckpointCount, Vec2[] Checkpoints)
     // Game Constants
     public const int Height = 9000;
     public const int Width = 16000;
+    public const int PodSize = 400;
 
     public static World FromStdin()
     {
@@ -60,6 +71,7 @@ public record GameState(World World, Pod[]? Team1Pods, Pod[]? Team2Pods)
     public const double BoostAdjustmentVecLenThreshold = 800;
     public const double BoostDegreesFromTargetThreshold = 5;
     public const double NoThrustThresholdDeg = 105;
+    public const double CollisionEstimationRadius = World.PodSize - 25;
     public GameState WithUpdatedPods(TurnInfo turnInfo)
     {
         return this with
@@ -77,9 +89,9 @@ public record GameState(World World, Pod[]? Team1Pods, Pod[]? Team2Pods)
         if (Team1Pods.Length != Team2Pods.Length) throw new InvalidOperationException("Team1Pods.Length != Team2Pods.Length");
         
         var actions = new Action[Team1Pods.Length];
-        for (int i = 0; i < actions.Length; i++)
+        for (int podIdx = 0; podIdx < actions.Length; podIdx++)
         {
-            Pod pod = Team1Pods[i];
+            Pod pod = Team1Pods[podIdx];
             
             // Calculate intermediate values
             Vec2 checkpointPos = World.Checkpoints[pod.NextCheckPointId];
@@ -92,33 +104,57 @@ public record GameState(World World, Pod[]? Team1Pods, Pod[]? Team2Pods)
             Vec2 adjustmentVec = perpVel.Scaled(-TargetAdjustmentIndex);
             Vec2 target = checkpointPos.Add(adjustmentVec);
             
-            // Calculate intermediate values depend on target
+            // Calculate intermediate values depending on target
             Vec2 dTarget = target.Sub(pod.Pos);
             // FIXME: (-180, 180) angle
             double fromPodPosToTargetDeg = Math.Atan2(dTarget.Y, dTarget.X) * Util.RadToDeg;
             // FIXME: (-180, 180) angle
             double fromPodDirToTargetDeg = Util.AngleBetweenDeg(pod.RotDeg, fromPodPosToTargetDeg);
-            double podDirDegreesFromTarget = Math.Abs(fromPodDirToTargetDeg); 
+            double podDirDegreesFromTarget = Math.Abs(fromPodDirToTargetDeg);
+            
+            // Estimated next positions
+            var opponentNextPosEst = new Vec2[2];
+            for (int opponentPodIdx = 0; opponentPodIdx < opponentNextPosEst.Length; opponentPodIdx++)
+            {
+                opponentNextPosEst[opponentPodIdx] = Team2Pods[opponentPodIdx].Pos.Add(Team2Pods[opponentPodIdx].Vel);
+            }
+            Vec2 nextPosEst = pod.Pos.Add(pod.Vel);
+            
+            // Estimate whether collisions will occur
+            bool collWith1 = Util.CircleCollision(nextPosEst, CollisionEstimationRadius, opponentNextPosEst[0],
+                CollisionEstimationRadius);
+            bool collWith2 = Util.CircleCollision(nextPosEst, CollisionEstimationRadius, opponentNextPosEst[1],
+                CollisionEstimationRadius);
+            
             
             // Calculate thrust
             string thrust = "100";
             string? msg = null;
-            if (podDirDegreesFromTarget > NoThrustThresholdDeg)
+            
+            // Shield rules
+            if (collWith1 || collWith2)
+            {
+                thrust = "SHIELD";
+                msg = "SHIELD";
+            }
+            // No thrust rules
+            else if (podDirDegreesFromTarget > NoThrustThresholdDeg)
             {
                 thrust = "0";
-                msg = $"Stopped";
+                // msg = $"Stopped";
             }
+            // Boost rules
             else if (checkpointDist > BoostDistanceThreshold && adjustmentVec.Length() < BoostAdjustmentVecLenThreshold && podDirDegreesFromTarget < BoostDegreesFromTargetThreshold)
             {
                 thrust = "BOOST";
-                msg = "BOOST";
+                // msg = "BOOST";
             }
             
             // Store action for this pod
-            actions[i] = new Action(thrust, target, msg);
+            actions[podIdx] = new Action(thrust, target, msg);
             
             // Diagnostics
-            Console.Error.WriteLine($"Bot {i}:\n  Vel={pod.Vel}\n  Pos={pod.Pos}\n  CheckpointPos={checkpointPos}\n  dCheckpoint={dCheckpoint}\n  perpVel={perpVel}\n  paraVel={paraVel}\n  rot={pod.RotDeg}");
+            Console.Error.WriteLine($"Bot {podIdx}:\n  Vel={pod.Vel}\n  Pos={pod.Pos}\n  CheckpointPos={checkpointPos}\n  dCheckpoint={dCheckpoint}\n  perpVel={perpVel}\n  paraVel={paraVel}\n  rot={pod.RotDeg}\n  col: ({collWith1}, {collWith2})");
         }
         
         return actions;
@@ -259,5 +295,11 @@ public class Util
         double result = b - a; // A value in the range (-360, 360)
         result = (result + 540) % 360 - 180; // A value in the range (-180, 180)
         return result;
+    }
+
+    public static bool CircleCollision(Vec2 p1, double r1, Vec2 p2, double r2)
+    {
+        double distance = p1.Sub(p2).Length();
+        return distance <= r1 + r2;
     }
 }
