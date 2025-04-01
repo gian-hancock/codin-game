@@ -42,27 +42,6 @@ public static class Program
                                               ?? throw new NullReferenceException("Couldn't read line from console");
 }
 
-public record World(int Laps, int CheckpointCount, Vec2[] Checkpoints)
-{
-    // Game Constants
-    public const int Height = 9000;
-    public const int Width = 16000;
-    public const int PodSize = 400;
-
-    public static World FromStdin()
-    {
-        int laps = int.Parse(Program.NextConsoleLine());
-        int checkpointCount = int.Parse(Program.NextConsoleLine());
-        var checkpoints = new Vec2[checkpointCount];
-        for (int i = 0; i < checkpointCount; i++)
-        {
-            string[] inputs = Program.NextConsoleLine().Split(' ');
-            checkpoints[i] = new Vec2(double.Parse(inputs[0]), double.Parse(inputs[1]));
-        }
-        return new World(laps, checkpointCount, checkpoints);
-    }
-}
-
 public record GameState(World World, Pod[]? Team1Pods, Pod[]? Team2Pods)
 {
     /// <summary>Affects how much pod targets are adjusted</summary>
@@ -71,7 +50,7 @@ public record GameState(World World, Pod[]? Team1Pods, Pod[]? Team2Pods)
     public const double BoostAdjustmentVecLenThreshold = 800;
     public const double BoostDegreesFromTargetThreshold = 5;
     public const double NoThrustThresholdDeg = 105;
-    public const double CollisionEstimationRadius = World.PodSize - 25;
+    public const double CollisionEstimationRadius = World.PodSize - 18;
     public GameState WithUpdatedPods(TurnInfo turnInfo)
     {
         return this with
@@ -200,6 +179,27 @@ public record Action(string Thrust, Vec2 Target, string? Msg = null)
     {
         string msg = Msg == null ? "" : $" {Msg}";
         return $"{(int)Target.X} {(int)Target.Y} {Thrust}{msg}";
+    }
+}
+
+public record World(int Laps, int CheckpointCount, Vec2[] Checkpoints)
+{
+    // Game Constants
+    public const int Height = 9000;
+    public const int Width = 16000;
+    public const int PodSize = 400;
+
+    public static World FromStdin()
+    {
+        int laps = int.Parse(Program.NextConsoleLine());
+        int checkpointCount = int.Parse(Program.NextConsoleLine());
+        var checkpoints = new Vec2[checkpointCount];
+        for (int i = 0; i < checkpointCount; i++)
+        {
+            string[] inputs = Program.NextConsoleLine().Split(' ');
+            checkpoints[i] = new Vec2(double.Parse(inputs[0]), double.Parse(inputs[1]));
+        }
+        return new World(laps, checkpointCount, checkpoints);
     }
 }
 
