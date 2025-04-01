@@ -24,16 +24,18 @@ public static class Program
     public static void Main(string[] args)
     {
         World world = World.FromStdin();
-        GameState gameState = new(world, null, null);
+        int turn = 0;
+        GameState gameState = new(world, 0, 0);
         while (true)
         {
             TurnInfo turnInfo = TurnInfo.FromStdin();
-            gameState = gameState.WithUpdatedPods(turnInfo);
-            Action[] actions = gameState.DecideAction();
+            (gameState, Action[] actions) = gameState.Next(turnInfo, turn);
             foreach (Action action in actions)
             {
                 Console.WriteLine(action);
             }
+
+            turn++;
         }
         // ReSharper disable once FunctionNeverReturns
     }
@@ -42,7 +44,7 @@ public static class Program
                                               ?? throw new NullReferenceException("Couldn't read line from console");
 }
 
-public record GameState(World World, Pod[]? Team1Pods, Pod[]? Team2Pods)
+public record GameState(World World, int BoostTurn, int Turn)
 {
     /// <summary>Affects how much pod targets are adjusted</summary>
     public const double TargetAdjustmentIndex = 5.0;
@@ -51,26 +53,22 @@ public record GameState(World World, Pod[]? Team1Pods, Pod[]? Team2Pods)
     public const double BoostDegreesFromTargetThreshold = 5;
     public const double NoThrustThresholdDeg = 105;
     public const double CollisionEstimationRadius = World.PodSize - 18;
-    public GameState WithUpdatedPods(TurnInfo turnInfo)
+    public const int BoostDelay = 25;
+    
+    public (GameState gameState, Action[] actions) Next(TurnInfo turnInfo, int turn)
     {
-        return this with
-        {
-            Team1Pods = turnInfo.Team1Pods,
-            Team2Pods = turnInfo.Team2Pods,
-        };
-    }
-
-    public Action[] DecideAction()
-    {
-        // Invariants
-        if (Team1Pods == null) throw new InvalidOperationException("Team1Pods is null");
-        if (Team2Pods == null) throw new InvalidOperationException("Team2Pods is null");
-        if (Team1Pods.Length != Team2Pods.Length) throw new InvalidOperationException("Team1Pods.Length != Team2Pods.Length");
+        int newBoostTurn = BoostTurn;
         
-        var actions = new Action[Team1Pods.Length];
+        // Invariants
+        if (turnInfo.Team1Pods.Length != turnInfo.Team2Pods.Length)
+        {
+            throw new InvalidOperationException("Team1Pods.Length != Team2Pods.Length");
+        }
+        
+        var actions = new Action[turnInfo.Team1Pods.Length];
         for (int podIdx = 0; podIdx < actions.Length; podIdx++)
         {
-            Pod pod = Team1Pods[podIdx];
+            Pod pod = turnInfo.Team1Pods[podIdx];
             
             // Calculate intermediate values
             Vec2 checkpointPos = World.Checkpoints[pod.NextCheckPointId];
@@ -95,7 +93,8 @@ public record GameState(World World, Pod[]? Team1Pods, Pod[]? Team2Pods)
             var opponentNextPosEst = new Vec2[2];
             for (int opponentPodIdx = 0; opponentPodIdx < opponentNextPosEst.Length; opponentPodIdx++)
             {
-                opponentNextPosEst[opponentPodIdx] = Team2Pods[opponentPodIdx].Pos.Add(Team2Pods[opponentPodIdx].Vel);
+                opponentNextPosEst[opponentPodIdx] = turnInfo.Team2Pods[opponentPodIdx].Pos
+                    .Add(turnInfo.Team2Pods[opponentPodIdx].Vel);
             }
             Vec2 nextPosEst = pod.Pos.Add(pod.Vel);
             
@@ -123,8 +122,12 @@ public record GameState(World World, Pod[]? Team1Pods, Pod[]? Team2Pods)
                 // msg = $"Stopped";
             }
             // Boost rules
-            else if (checkpointDist > BoostDistanceThreshold && adjustmentVec.Length() < BoostAdjustmentVecLenThreshold && podDirDegreesFromTarget < BoostDegreesFromTargetThreshold)
+            else if (Turn >= newBoostTurn 
+                     && checkpointDist > BoostDistanceThreshold 
+                     && adjustmentVec.Length() < BoostAdjustmentVecLenThreshold 
+                     && podDirDegreesFromTarget < BoostDegreesFromTargetThreshold)
             {
+                newBoostTurn = Turn + BoostDelay;
                 thrust = "BOOST";
                 // msg = "BOOST";
             }
@@ -135,8 +138,8 @@ public record GameState(World World, Pod[]? Team1Pods, Pod[]? Team2Pods)
             // Diagnostics
             Console.Error.WriteLine($"Bot {podIdx}:\n  Vel={pod.Vel}\n  Pos={pod.Pos}\n  CheckpointPos={checkpointPos}\n  dCheckpoint={dCheckpoint}\n  perpVel={perpVel}\n  paraVel={paraVel}\n  rot={pod.RotDeg}\n  col: ({collWith1}, {collWith2})");
         }
-        
-        return actions;
+
+        return (this with { BoostTurn = newBoostTurn, Turn = Turn + 1 }, actions);
     }
 }
 
