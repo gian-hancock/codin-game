@@ -3,6 +3,10 @@
     /*
     TODO:
         - Incorporate Knowledge of next checkpoint
+            - Switch to next checkpoint early
+            - target driving line based on next checkpoint
+        - Teammate avoidance: Teammate who is on loosing position dodges winning teammate in upcoming collision
+        - Blocker: Teammate which falls behind targets opponent leading bot.
     */
 
 
@@ -22,7 +26,7 @@
             World world = World.FromStdin();
             Console.Error.WriteLine(world);
             int turn = 0;
-            GameState gameState = new(world, 0, 0);
+            GameState gameState = new(world, 0, 0, new int[2]);
             while (true)
             {
                 TurnInfo turnInfo = TurnInfo.FromStdin();
@@ -41,7 +45,7 @@
                                                   ?? throw new NullReferenceException("Couldn't read line from console");
     }
 
-    public record GameState(World World, int BoostTurn, int Turn)
+    public record GameState(World World, int BoostTurn, int Turn, int[] LapsCompleted)
     {
         /// <summary>Affects how much pod targets are adjusted</summary>
         public const double TargetAdjustmentIndex = 5.0;
@@ -52,22 +56,35 @@
         public const double CollisionEstimationRadius = World.PodSize - 18;
         public const int BoostDelay = 25;
         // Very roughly experimentally determined.
-        public const double OvershootDisPerVel = 8;
+
+        public double EstimatedOvershoot(double speed)
+        {
+            return 8 * speed - 0.00125 * (speed * speed);
+        }
         
         public (GameState gameState, Action[] actions) Next(TurnInfo turnInfo, int turn)
         {
             int newBoostTurn = BoostTurn;
-            
-            // Invariants
-            if (turnInfo.Team1Pods.Length != turnInfo.Team2Pods.Length)
+            int[] newLapsCompleted = [..LapsCompleted];
+
+            for (int podIdx = 0; podIdx < 4; podIdx++)
             {
-                throw new InvalidOperationException("Team1Pods.Length != Team2Pods.Length");
+                // TODO:
+                // 1. Count laps
+                // 2. create score: (lap)+(normalised dis to next checkpoint)
+                // 3. trailing pod dodges leading pot (to prevent interference)
+                // 4. trailing pod interrupts opponent's leading pod
+                //   - either target just ahead of opponent.
+                //   - target the checkpoint opponent is up to.
             }
             
-            var actions = new Action[turnInfo.Team1Pods.Length];
+            // Invariants
+            if (turnInfo.Pods.Length != 4) throw new InvalidOperationException("There must be 4 pods");
+            
+            var actions = new Action[2];
             for (int podIdx = 0; podIdx < actions.Length; podIdx++)
             {
-                Pod pod = turnInfo.Team1Pods[podIdx];
+                Pod pod = turnInfo.Pods[podIdx];
                 
                 // Calculate intermediate values
                 Vec2 checkpointPos = World.Checkpoints[pod.NextCheckPointId];
@@ -77,7 +94,7 @@
                 Vec2 perpVel = pod.Vel.Sub(paraVel); // Component of velocity perpendicular to direction of checkpoint
                 
                 // Overshoot correction
-                double overshootDist = OvershootDisPerVel * paraVel.Length() - checkpointDist;
+                double overshootDist = EstimatedOvershoot(paraVel.Length()) - checkpointDist;
                 Vec2 overshoot = overshootDist > 0 
                     ? paraVel.Normalized().Scaled(overshootDist)
                     : new Vec2(0, 0);
@@ -105,10 +122,10 @@
                 
                 // Estimated next positions
                 var opponentNextPosEst = new Vec2[2];
-                for (int opponentPodIdx = 0; opponentPodIdx < opponentNextPosEst.Length; opponentPodIdx++)
+                for (int opponentIdx = 0; opponentIdx < opponentNextPosEst.Length; opponentIdx++)
                 {
-                    opponentNextPosEst[opponentPodIdx] = turnInfo.Team2Pods[opponentPodIdx].Pos
-                        .Add(turnInfo.Team2Pods[opponentPodIdx].Vel);
+                    Pod opponentPod = turnInfo.Pods[2 + opponentIdx]; // NOTE: first opponent pod at Pods[2]
+                    opponentNextPosEst[opponentIdx] = opponentPod.Pos.Add(opponentPod.Vel);
                 }
                 Vec2 nextPosEst = pod.Pos.Add(pod.Vel);
                 
@@ -138,7 +155,6 @@
                 else if (Turn >= newBoostTurn 
                          && checkpointDist > BoostDistanceThreshold 
                          && driftCorrection.Length() < BoostAdjustmentVecLenThreshold
-                         // TODO: Incorporate overshoot correction here?
                          && podDirDegreesFromTarget < BoostDegreesFromTargetThreshold)
                 {
                     newBoostTurn = Turn + BoostDelay;
@@ -170,22 +186,17 @@
         }
     }
 
-    public record TurnInfo(Pod[] Team1Pods, Pod[] Team2Pods)
+    public record TurnInfo(Pod[] Pods)
     {
         public static TurnInfo FromStdin()
         {
-            var team1Pods = new Pod[2];
-            for (int i = 0; i < 2; i++)
+            var pods = new Pod[4];
+            for (int i = 0; i < 4; i++)
             {
-                team1Pods[i] = ReadPodFromStdin();
-            }
-            var team2Pods = new Pod[2];
-            for (int i = 0; i < 2; i++)
-            {
-                team2Pods[i] = ReadPodFromStdin();
+                pods[i] = ReadPodFromStdin();
             }
             
-            return new TurnInfo(team1Pods, team2Pods);
+            return new TurnInfo(pods);
 
             Pod ReadPodFromStdin()
             {
